@@ -464,7 +464,7 @@ vkEnumeratePhysicalDevices(VkInstance instance, uint32_t *pPhysicalDeviceCount,
                            VkPhysicalDevice *pPhysicalDevices) {
     const VkLayerInstanceDispatchTable *disp;
     VkResult res;
-    uint32_t count, i;
+    uint32_t count, i, j;
     struct loader_instance *inst;
     disp = loader_get_instance_dispatch(instance);
 
@@ -490,7 +490,7 @@ vkEnumeratePhysicalDevices(VkInstance instance, uint32_t *pPhysicalDeviceCount,
     }
     if (inst->phys_devs)
         loader_heap_free(inst, inst->phys_devs);
-    count = inst->total_gpu_count;
+    count = *pPhysicalDeviceCount;
     inst->phys_devs = (struct loader_physical_device *)loader_heap_alloc(
         inst, count * sizeof(struct loader_physical_device),
         VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE);
@@ -503,11 +503,22 @@ vkEnumeratePhysicalDevices(VkInstance instance, uint32_t *pPhysicalDeviceCount,
 
         // initialize the loader's physicalDevice object
         loader_set_dispatch((void *)&inst->phys_devs[i], inst->disp);
-        inst->phys_devs[i].this_icd = inst->phys_devs_term[i].this_icd;
-        inst->phys_devs[i].phys_dev = pPhysicalDevices[i];
+        for (j = 0; j < inst->total_gpu_count; ++j) {
+            // Find the matching VkPhysicalDevice setup by terminator_EnumeratePhysicalDevices().
+            if (inst->phys_devs_term[j].phys_dev == ((struct loader_physical_device *)pPhysicalDevices[i])->phys_dev) {
+                inst->phys_devs[i].this_icd = inst->phys_devs_term[j].this_icd;
+                inst->phys_devs[i].phys_dev = pPhysicalDevices[i];
 
-        // copy wrapped object into Application provided array
-        pPhysicalDevices[i] = (VkPhysicalDevice)&inst->phys_devs[i];
+                // copy wrapped object into Application provided array
+                pPhysicalDevices[i] = (VkPhysicalDevice)&inst->phys_devs[i];
+                break;
+            }
+        }
+        if (j >= inst->total_gpu_count) {
+            assert(VK_FALSE && "vkEnumeratePhysicalDevices:  "
+                               "VkPhysicalDevice not found in inst->phys_devs_term, which indicates a terminator_EnumeratePhysicalDevices bug");
+            res = VK_ERROR_INITIALIZATION_FAILED;
+        }
     }
     loader_platform_thread_unlock_mutex(&loader_lock);
     return res;
