@@ -110,7 +110,6 @@ struct layer_data {
 // MTMERGE - stuff pulled directly from MT
     uint64_t currentFenceId;
     // Maps for tracking key structs related to mem_tracker state
-    unordered_map<VkRenderPass, MT_PASS_INFO> passMap;
     unordered_map<VkDescriptorSet, MT_DESCRIPTOR_SET_INFO> descriptorSetMap;
     // Images and Buffers are 2 objects that can have memory bound to them so they get special treatment
     unordered_map<uint64_t, MT_OBJ_BINDING_INFO> imageBindingMap;
@@ -6273,7 +6272,6 @@ vkDestroyRenderPass(VkDevice device, VkRenderPass renderPass, const VkAllocation
     dev_data->device_dispatch_table->DestroyRenderPass(device, renderPass, pAllocator);
     loader_platform_thread_lock_mutex(&globalLock);
     dev_data->renderPassMap.erase(renderPass);
-    dev_data->passMap.erase(renderPass);
     loader_platform_thread_unlock_mutex(&globalLock);
 }
 
@@ -9346,11 +9344,12 @@ VK_LAYER_EXPORT VKAPI_ATTR VkResult VKAPI_CALL vkCreateRenderPass(VkDevice devic
             pass_info.load_op = desc.loadOp;
             pass_info.store_op = desc.storeOp;
             pass_info.attachment = i;
-            dev_data->passMap[*pRenderPass].attachments.push_back(pass_info);
+            dev_data->renderPassMap[*pRenderPass].attachments.push_back(pass_info);
         }
         // TODO: Maybe fill list and then copy instead of locking
-        std::unordered_map<uint32_t, bool> &attachment_first_read = dev_data->passMap[*pRenderPass].attachment_first_read;
-        std::unordered_map<uint32_t, VkImageLayout> &attachment_first_layout = dev_data->passMap[*pRenderPass].attachment_first_layout;
+        std::unordered_map<uint32_t, bool> &attachment_first_read = dev_data->renderPassMap[*pRenderPass].attachment_first_read;
+        std::unordered_map<uint32_t, VkImageLayout> &attachment_first_layout =
+            dev_data->renderPassMap[*pRenderPass].attachment_first_layout;
         for (uint32_t i = 0; i < pCreateInfo->subpassCount; ++i) {
             const VkSubpassDescription &subpass = pCreateInfo->pSubpasses[i];
             for (uint32_t j = 0; j < subpass.inputAttachmentCount; ++j) {
@@ -9571,9 +9570,9 @@ vkCmdBeginRenderPass(VkCommandBuffer commandBuffer, const VkRenderPassBeginInfo 
     if (pCB) {
         if (pRenderPassBegin && pRenderPassBegin->renderPass) {
 #if MTMERGE
-            auto pass_data = dev_data->passMap.find(pRenderPassBegin->renderPass);
-            if (pass_data != dev_data->passMap.end()) {
-                MT_PASS_INFO &pass_info = pass_data->second;
+            auto pass_data = dev_data->renderPassMap.find(pRenderPassBegin->renderPass);
+            if (pass_data != dev_data->renderPassMap.end()) {
+                RENDER_PASS_NODE &pass_info = pass_data->second;
                 pass_info.fb = pRenderPassBegin->framebuffer;
                 auto cb_data = dev_data->commandBufferMap.find(commandBuffer);
                 for (size_t i = 0; i < pass_info.attachments.size(); ++i) {
@@ -9685,9 +9684,9 @@ VK_LAYER_EXPORT VKAPI_ATTR void VKAPI_CALL vkCmdEndRenderPass(VkCommandBuffer co
 #if MTMERGE
     auto cb_data = dev_data->commandBufferMap.find(commandBuffer);
     if (cb_data != dev_data->commandBufferMap.end()) {
-        auto pass_data = dev_data->passMap.find(cb_data->second->activeRenderPass);
-        if (pass_data != dev_data->passMap.end()) {
-            MT_PASS_INFO &pass_info = pass_data->second;
+        auto pass_data = dev_data->renderPassMap.find(cb_data->second->activeRenderPass);
+        if (pass_data != dev_data->renderPassMap.end()) {
+            RENDER_PASS_NODE &pass_info = pass_data->second;
             for (size_t i = 0; i < pass_info.attachments.size(); ++i) {
                 MT_FB_ATTACHMENT_INFO &fb_info = dev_data->frameBufferMap[pass_info.fb].attachments[i];
                 if (pass_info.attachments[i].store_op == VK_ATTACHMENT_STORE_OP_STORE) {
