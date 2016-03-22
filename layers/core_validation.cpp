@@ -9235,6 +9235,17 @@ VkBool32 ValidateLayouts(const layer_data *my_data, VkDevice device, const VkRen
                                     "Layout for color attachment is %s but can only be COLOR_ATTACHMENT_OPTIMAL or GENERAL.",
                                     string_VkImageLayout(subpass.pColorAttachments[j].layout));
                 }
+            // Verify that the render pass color attachment initial/final layout is compatible with the sub-pass attachment layout.
+            } else if (!(pCreateInfo->pAttachments[subpass.pColorAttachments[j].attachment].initialLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ||
+                         pCreateInfo->pAttachments[subpass.pColorAttachments[j].attachment].initialLayout == VK_IMAGE_LAYOUT_GENERAL ||
+                         pCreateInfo->pAttachments[subpass.pColorAttachments[j].attachment].finalLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL ||
+                         pCreateInfo->pAttachments[subpass.pColorAttachments[j].attachment].finalLayout == VK_IMAGE_LAYOUT_GENERAL)) {
+                skip |= log_msg(my_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT,
+                                (VkDebugReportObjectTypeEXT)0, 0, __LINE__, DRAWSTATE_INVALID_IMAGE_LAYOUT, "DS",
+                                "Layout %d for color attachment %d is incompatible with sub-pass %d attachment %d initialLayout %d/finalLayout %d.",
+                                subpass.pColorAttachments[j].layout, j, i, subpass.pColorAttachments[j].attachment,
+                                pCreateInfo->pAttachments[subpass.pColorAttachments[j].attachment].initialLayout,
+                                pCreateInfo->pAttachments[subpass.pColorAttachments[j].attachment].finalLayout);
             }
         }
         if ((subpass.pDepthStencilAttachment != NULL) && (subpass.pDepthStencilAttachment->attachment != VK_ATTACHMENT_UNUSED)) {
@@ -9251,6 +9262,19 @@ VkBool32 ValidateLayouts(const layer_data *my_data, VkDevice device, const VkRen
                                 "Layout for depth attachment is %s but can only be DEPTH_STENCIL_ATTACHMENT_OPTIMAL or GENERAL.",
                                 string_VkImageLayout(subpass.pDepthStencilAttachment->layout));
                 }
+            // Verify that the render pass depth-stencil attachment initial/final layout is compatible with the sub-pass attachment layout.
+            } else if (!(pCreateInfo->pAttachments[subpass.pDepthStencilAttachment->attachment].initialLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ||
+                         pCreateInfo->pAttachments[subpass.pDepthStencilAttachment->attachment].initialLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL ||
+                         pCreateInfo->pAttachments[subpass.pDepthStencilAttachment->attachment].initialLayout == VK_IMAGE_LAYOUT_GENERAL ||
+                         pCreateInfo->pAttachments[subpass.pDepthStencilAttachment->attachment].finalLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL ||
+                         pCreateInfo->pAttachments[subpass.pDepthStencilAttachment->attachment].finalLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL ||
+                         pCreateInfo->pAttachments[subpass.pDepthStencilAttachment->attachment].finalLayout == VK_IMAGE_LAYOUT_GENERAL)) {
+                skip |= log_msg(my_data->report_data, VK_DEBUG_REPORT_ERROR_BIT_EXT,
+                                (VkDebugReportObjectTypeEXT)0, 0, __LINE__, DRAWSTATE_INVALID_IMAGE_LAYOUT, "DS",
+                                "Layout %d for depth-stencil attachment is incompatible with sub-pass %d attachment %d initialLayout %d/finalLayout %d.",
+                                subpass.pDepthStencilAttachment->layout, i, subpass.pDepthStencilAttachment->attachment,
+                                pCreateInfo->pAttachments[subpass.pDepthStencilAttachment->attachment].initialLayout,
+                                pCreateInfo->pAttachments[subpass.pDepthStencilAttachment->attachment].finalLayout);
             }
         }
     }
