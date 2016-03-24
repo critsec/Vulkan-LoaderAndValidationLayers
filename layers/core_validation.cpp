@@ -2246,22 +2246,21 @@ static bool attachment_references_compatible(const uint32_t index, const VkAttac
                                              const uint32_t primaryCount, const VkAttachmentDescription *pPrimaryAttachments,
                                              const VkAttachmentReference *pSecondary, const uint32_t secondaryCount,
                                              const VkAttachmentDescription *pSecondaryAttachments) {
-    bool success = false;
     if (index >= primaryCount) { // Check secondary as if primary is VK_ATTACHMENT_UNUSED
         if (VK_ATTACHMENT_UNUSED == pSecondary[index].attachment)
-            success = true;
+            return true;
     } else if (index >= secondaryCount) { // Check primary as if secondary is VK_ATTACHMENT_UNUSED
         if (VK_ATTACHMENT_UNUSED == pPrimary[index].attachment)
-            success = true;
+            return true;
     } else { // format and sample count must match
         if ((pPrimaryAttachments[pPrimary[index].attachment].format ==
              pSecondaryAttachments[pSecondary[index].attachment].format) &&
             (pPrimaryAttachments[pPrimary[index].attachment].samples ==
              pSecondaryAttachments[pSecondary[index].attachment].samples))
-            success = true;
+            return true;
     }
     // Format and sample counts didn't match
-    return success;
+    return false;
 }
 
 // For give primary and secondary RenderPass objects, verify that they're compatible
