@@ -1,5 +1,6 @@
 if(NOT WIN32)
     find_package(XCB REQUIRED)
+    find_package(X11 REQUIRED)
 endif()
 
 file(GLOB TEXTURES
@@ -26,6 +27,14 @@ if(WIN32)
     else ()
         set (BUILDTGT_DIR build32)
     endif()
+
+    # Use static MSVCRT libraries
+    foreach(configuration in CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELEASE CMAKE_C_FLAGS_RELWITHDEBINFO
+                             CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELEASE CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+        if(${configuration} MATCHES "/MD")
+            string(REGEX REPLACE "/MD" "/MT" ${configuration} "${${configuration}}")
+        endif()
+    endforeach()
 
     add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/demos/tri-vert.spv
        COMMAND ${GLSLANG_VALIDATOR} -s -V ${PROJECT_SOURCE_DIR}/demos/tri.vert
@@ -73,10 +82,10 @@ endif()
 if(NOT WIN32)
     include_directories (
        ${XCB_INCLUDE_DIRS}
+       ${X11_INCLUDE_DIRS}
        "${PROJECT_SOURCE_DIR}/icd/common"
        )
-
-    link_libraries(${XCB_LIBRARIES} vulkan m)
+    link_libraries(${XCB_LIBRARIES} ${X11_LIBRARIES} vulkan m)
 endif()
 if(WIN32)
     include_directories (
